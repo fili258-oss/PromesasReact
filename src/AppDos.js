@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import Person from './Person';
 import SearchForm from './SearchForm';
 import './App.css';
@@ -18,25 +18,25 @@ function App() {
 
   // ✅ Función con Axios (Optimizada)
   const findPeopleAxios = useCallback(async () => {
-    if (isLoading) return; // Evitar múltiples solicitudes simultáneas
+    if (isLoading) return;
 
     setIsLoading(true);
     setError(null);
 
-    const startTime = performance.now(); // Iniciar medición de tiempo
+    const startTime = performance.now();
 
     try {
       const response = await axios.get(apiUrl);
       setPeopleAxios(response.data.results);
-      setAxiosTime(performance.now() - startTime); // Calcular tiempo de respuesta
+      setAxiosTime(performance.now() - startTime);
     } catch (error) {
-      if (error.response) {
-        setError(`Error HTTP: ${error.response.status} - ${error.response.statusText}`);
-      } else if (error.request) {
-        setError("Error de red. No se recibió respuesta del servidor.");
-      } else {
-        setError("Error desconocido: " + error.message);
-      }
+      setError(
+        error.response
+          ? `Error HTTP: ${error.response.status} - ${error.response.statusText}`
+          : error.request
+          ? "Error de red. No se recibió respuesta del servidor."
+          : `Error desconocido: ${error.message}`
+      );
     } finally {
       setIsLoading(false);
     }
@@ -53,16 +53,13 @@ function App() {
 
     try {
       const response = await fetch(apiUrl);
-
-      if (!response.ok) {
-        throw new Error(`Error HTTP: ${response.status} - ${response.statusText}`);
-      }
+      if (!response.ok) throw new Error(`Error HTTP: ${response.status} - ${response.statusText}`);
 
       const data = await response.json();
       setPeopleFetch(data.results);
       setFetchTime(performance.now() - startTime);
     } catch (error) {
-      setError("Error con Fetch: " + error.message);
+      setError(`Error con Fetch: ${error.message}`);
     } finally {
       setIsLoading(false);
     }
@@ -80,28 +77,24 @@ function App() {
 
       const [axiosResponse, fetchResponse] = await Promise.all([
         axios.get(apiUrl).then(res => res.data.results),
-        fetch(apiUrl).then(res => {
-          if (!res.ok) throw new Error(`Fetch Error: ${res.status}`);
-          return res.json();
-        }).then(data => data.results)
+        fetch(apiUrl)
+          .then(res => {
+            if (!res.ok) throw new Error(`Fetch Error: ${res.status}`);
+            return res.json();
+          })
+          .then(data => data.results),
       ]);
 
       setPeopleAxios(axiosResponse);
       setPeopleFetch(fetchResponse);
-
-      const totalTime = performance.now() - startTime;
-      setAxiosTime(totalTime);
-      setFetchTime(totalTime);
+      setAxiosTime(performance.now() - startTime);
+      setFetchTime(performance.now() - startTime);
     } catch (error) {
-      setError("Error en la comparación de Fetch y Axios: " + error.message);
+      setError(`Error en la comparación de Fetch y Axios: ${error.message}`);
     } finally {
       setIsLoading(false);
     }
   }, [apiUrl, isLoading]);
-
-  useEffect(() => {
-    findPeopleBoth();
-  }, [gender, country, findPeopleBoth]);
 
   return (
     <div className="App">

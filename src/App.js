@@ -1,34 +1,100 @@
-import  { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import Person from './Person';
 import SearchForm from './SearchForm';
 import './App.css';
 import axios from 'axios';
 
-function App () {
-  const [people, setPeople] = useState([]);
+function App() {
+  const [peopleAxios, setPeopleAxios] = useState([]);
+  const [peopleFetch, setPeopleFetch] = useState([]);
   const [gender, setGender] = useState();
   const [country, setCountry] = useState('US');
-  
-  const findPeopleAxios =  useCallback(async () => {
-    const url = `https://randomuser.me/api/?results=12&gender=${gender}&nat=${country}`;
-    const { data: { results } } = await axios.get(url);
-    setPeople(results);
-  }, [gender, country])
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [axiosTime, setAxiosTime] = useState(null);
+  const [fetchTime, setFetchTime] = useState(null);
 
-  useEffect(() => {
-    findPeopleAxios();
-  }, [gender, country, findPeopleAxios])
+  const apiUrl = `https://randomuser.me/api/?results=12&gender=${gender || ''}&nat=${country}`;
 
+  // Función con Axios (Optimizada)
+  const findPeopleAxios = useCallback(async () => {
+    if (isLoading) return;
 
+    setIsLoading(true);
+    setError(null);
 
-  const handleGender = (event) => {
-    const selectedGender = event.target.value;
-    setGender(selectedGender);
-  }
+    const startTime = performance.now();
 
-  const handleCountry = (event) => {
-    setCountry(event.target.value);
-  }
+    try {
+      const response = await axios.get(apiUrl);
+      setPeopleAxios(response.data.results);
+      setAxiosTime(performance.now() - startTime);
+    } catch (error) {
+      setError(
+        error.response
+          ? `Error HTTP: ${error.response.status} - ${error.response.statusText}`
+          : error.request
+          ? "Error de red. No se recibió respuesta del servidor."
+          : `Error desconocido: ${error.message}`
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }, [apiUrl, isLoading]);
+
+  // Función con Fetch (Optimizada)
+  const findPeopleFetch = useCallback(async () => {
+    if (isLoading) return;
+
+    setIsLoading(true);
+    setError(null);
+
+    const startTime = performance.now();
+
+    try {
+      const response = await fetch(apiUrl);
+      if (!response.ok) throw new Error(`Error HTTP: ${response.status} - ${response.statusText}`);
+
+      const data = await response.json();
+      setPeopleFetch(data.results);
+      setFetchTime(performance.now() - startTime);
+    } catch (error) {
+      setError(`Error con Fetch: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [apiUrl, isLoading]);
+
+  // Comparación con Promise.all()
+  const findPeopleBoth = useCallback(async () => {
+    if (isLoading) return;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const startTime = performance.now();
+
+      const [axiosResponse, fetchResponse] = await Promise.all([
+        axios.get(apiUrl).then(res => res.data.results),
+        fetch(apiUrl)
+          .then(res => {
+            if (!res.ok) throw new Error(`Fetch Error: ${res.status}`);
+            return res.json();
+          })
+          .then(data => data.results),
+      ]);
+
+      setPeopleAxios(axiosResponse);
+      setPeopleFetch(fetchResponse);
+      setAxiosTime(performance.now() - startTime);
+      setFetchTime(performance.now() - startTime);
+    } catch (error) {
+      setError(`Error en la comparación de Fetch y Axios: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [apiUrl, isLoading]);
 
   return (
     <div className="App">
@@ -37,18 +103,26 @@ function App () {
         <div>Gender: {gender || "all"}</div>
         <div>Country: {country}</div>
       </div>
-      <SearchForm 
-        handleGender={handleGender} 
-        handleCountry={handleCountry}
-        country={country}
-      />
-      <div className="App-button"><button onClick={findPeopleAxios}>Search again</button></div>
+
+      <SearchForm handleGender={(e) => setGender(e.target.value)} handleCountry={(e) => setCountry(e.target.value)} country={country} />
+
+      <div className="App-button">
+        <button onClick={findPeopleAxios} disabled={isLoading}>Fetch with Axios</button>
+        <button onClick={findPeopleFetch} disabled={isLoading}>Fetch with Fetch</button>
+        <button onClick={findPeopleBoth} disabled={isLoading}>Compare Both</button>
+      </div>
+
+      {error && <p className="error-message">{error}</p>}
+      {isLoading && <p>Loading...</p>}
+
+      <h2>Axios Results {axiosTime && `(${axiosTime.toFixed(2)} ms)`}</h2>
       <div className="App-people">
-        { 
-          people.map((person) => {
-            return <Person key={person.login.uuid} person={person} />
-          })
-        }
+        {peopleAxios.map((person) => <Person key={person.login.uuid} person={person} />)}
+      </div>
+
+      <h2>Fetch Results {fetchTime && `(${fetchTime.toFixed(2)} ms)`}</h2>
+      <div className="App-people">
+        {peopleFetch.map((person) => <Person key={person.login.uuid} person={person} />)}
       </div>
     </div>
   );
