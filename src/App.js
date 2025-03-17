@@ -9,15 +9,15 @@ function App () {
   const [gender, setGender] = useState();
   const [country, setCountry] = useState('US');
   
-  const findPeople =  useCallback(async () => {
+  const findPeopleAxios =  useCallback(async () => {
     const url = `https://randomuser.me/api/?results=12&gender=${gender}&nat=${country}`;
     const { data: { results } } = await axios.get(url);
     setPeople(results);
   }, [gender, country])
 
   useEffect(() => {
-    findPeople();
-  }, [gender, country, findPeople])
+    findPeopleAxios();
+  }, [gender, country, findPeopleAxios])
 
 
 
@@ -42,7 +42,7 @@ function App () {
         handleCountry={handleCountry}
         country={country}
       />
-      <div className="App-button"><button onClick={findPeople}>Search again</button></div>
+      <div className="App-button"><button onClick={findPeopleAxios}>Search again</button></div>
       <div className="App-people">
         { 
           people.map((person) => {
